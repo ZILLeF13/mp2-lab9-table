@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include <stack>
+#include <fstream>
+//#include "text.txt"
 
 
 typedef int TKey;
@@ -10,6 +12,7 @@ struct TRecord
 {
 	TKey key;
 	TVal val;
+	TRecord(TKey _key = 0, TVal _val = 0):key(_key),val(_val){}
 };
 
 class TTable
@@ -91,8 +94,6 @@ public:
 	bool IsEnd()override;
 	int GetSize()const;
 	TRecord GetCurr()override;
-
-	//int GetDataCount();
 };
 
 TArrayTable::TArrayTable(int _size):TTable()
@@ -172,6 +173,7 @@ public:
 	bool Delete(TKey k)override;
 	bool Insert(TRecord rec)override;
 	void Print();
+	bool IsFull();
 };
 
 bool TScanTable::Find(TKey k)
@@ -230,6 +232,11 @@ void TScanTable::Print()
 	}
 }
 
+bool TScanTable::IsFull()
+{
+	return size == DataCount;
+}
+
 //********************************************************************************
 
 class TSortTable :public TArrayTable
@@ -243,21 +250,20 @@ public:
 	TSortTable& operator =(TArrayTable& ta); 
 	void Sort();
 	void Print();
+	bool IsFull();
 };
 
 bool TSortTable::Find(TKey k)
 {
-	bool flag = false;
 	int first = 0, last = DataCount - 1, mid;
 	while (first <= last)
 	{
 		Eff++;
-		mid = (first + last) / 2;
+		mid = (first + last) *0.5;
 		if (pRec[mid].key == k)
 		{
 			curr = mid;
-			flag = true;
-			break;
+			return true;
 		}
 		else
 			if (pRec[mid].key > k)
@@ -265,9 +271,8 @@ bool TSortTable::Find(TKey k)
 			else
 				first = mid + 1;
 	}
-	if (flag == false)
-		curr == first;
-	return flag;
+		curr = first;
+	return false;
 }
 
 bool TSortTable::Insert(TRecord  rec)
@@ -276,13 +281,12 @@ bool TSortTable::Insert(TRecord  rec)
 		return false;
 	else
 	{
-		for (int i = DataCount - 1; i >= curr; i--)
+		for (int i = DataCount ++; i > curr; i--)
 		{
-			pRec[i + 1] = pRec[i];
+			pRec[i ] = pRec[i-1];
 			Eff++;
 		}
 		pRec[curr] = rec;
-		DataCount++;
 		return true;
 	}
 }
@@ -294,6 +298,7 @@ bool TSortTable::Delete(TKey k)
 		for (int i = curr; i < DataCount; i++)
 		{
 			pRec[i] = pRec[i + 1];
+			Eff++;
 		}
 		DataCount--;
 		return true;
@@ -322,7 +327,7 @@ TSortTable& TSortTable::operator=(TArrayTable& ta)
 
 void TSortTable::Sort()
 {
-	if (DataCount > 1)
+	//if (DataCount > 1)
 		for (int i = 0; i < DataCount; i++)
 			for (int j = i; i < DataCount; j++)
 				if (pRec[i].key < pRec[j].key)
@@ -332,6 +337,11 @@ void TSortTable::Sort()
 					pRec[j] = tmp;
 					Eff++;
 				}
+}
+
+bool TSortTable::IsFull()
+{
+	return size == DataCount;
 }
 
 void TSortTable::Print()
@@ -347,11 +357,15 @@ void TSortTable::Print()
 
 //********************************************************************************
 
-struct TNode
+struct TNode:public TRecord
 {
 	TNode* pLeft, * pRight;
-	TKey key;
-	TVal val;
+	TNode(TRecord rec)
+	{
+		key = rec.key;
+		val = rec.val;
+		pLeft = pRight = NULL;
+	}
 };
 
 //********************************************************************************
@@ -361,9 +375,9 @@ class TTreeTable :public TTable
 protected:
 	TNode* pRoot, * pCurr, * pPrev;
 	std::stack<TNode*> st;
-	int n;
+	int n,size,level=0;
 public:
-	TTreeTable();
+	TTreeTable(int _size=10);
 	~TTreeTable();
 	bool Find(TKey k)override;
 	bool Insert(TRecord rec)override;
@@ -374,12 +388,15 @@ public:
 	bool IsFull()const override;
 	TRecord GetCurr()override;
 	void Print();
+	void Save(const char* fn);
+	void _Save(std::ostream &os,TNode *pNode);
 };
 
-TTreeTable::TTreeTable()
+TTreeTable::TTreeTable(int _size)
 {
 	pRoot = pCurr = pPrev = NULL;
 	n = 0;
+	size = _size;
 }
 
 TTreeTable::~TTreeTable()
@@ -428,23 +445,21 @@ bool TTreeTable::Find(TKey k)
 
 bool TTreeTable::Insert(TRecord rec)
 {
-	TNode n;
-	n.key = rec.key;
-	n.val = rec.val;
-	if (Find(n.key))
+	if (Find(rec.key))
 		return false;
 	Eff++;
 	DataCount++;
-	TNode* tmp = new TNode(n);
+	TNode* tmp = new TNode(rec);
 	if (pRoot == NULL)
 		pRoot = tmp;
 	else
 	{
-		if (pCurr->key > n.key)
+		if (pCurr->key > rec.key)
 			pCurr->pLeft = tmp;
 		else
 			pCurr->pRight = tmp;
 	}
+	return true;
 }
 
 bool TTreeTable::Delete(TKey k)
@@ -452,56 +467,51 @@ bool TTreeTable::Delete(TKey k)
 	if (Find(k))
 	{
 		if (!pCurr->pLeft && !pCurr->pRight)
+		{
 			if (pPrev->pLeft == pCurr)
 				pPrev->pLeft = NULL;
 			else
 				pPrev->pRight = NULL;
-		delete pCurr;
-		return true;
-	}
-	else
-		if (pCurr->pLeft && !pCurr->pRight)
-		{
-			if (pPrev->pLeft == pCurr)
-				pPrev->pLeft = pCurr->pLeft;
-			else
-				pPrev->pRight = pCurr->pLeft;
 			delete pCurr;
-			return true;
 		}
 		else
-			if (!pCurr->pLeft && pCurr->pRight)
+			if (pCurr->pLeft && !pCurr->pRight)
 			{
-				if (pPrev->pRight == pCurr)
-					pPrev->pRight = pCurr->pRight;
+				if (pPrev->pLeft == pCurr)
+					pPrev->pLeft = pCurr->pLeft;
 				else
-					pPrev->pLeft = pCurr->pRight;
-				delete pCurr;
-				return true;
-			}
+					pPrev->pRight = pCurr->pLeft;
+				delete pCurr;			}
 			else
-			{
-				if (pCurr->pLeft && pCurr->pRight)
+				if (!pCurr->pLeft && pCurr->pRight)
 				{
-					TNode* tmp = pCurr->pLeft;
-					pPrev = pCurr;
-					while (tmp->pRight != NULL)
-					{
-						pPrev = tmp;
-						tmp = tmp->pRight;
-					}
-					pCurr->val = tmp->val;
-					pCurr->key = tmp->key;
-					if (pPrev->pLeft = tmp)
-						pPrev->pLeft = tmp->pLeft;
+					if (pPrev->pRight == pCurr)
+						pPrev->pRight = pCurr->pRight;
 					else
-						pPrev->pRight = tmp->pLeft;
-					delete tmp;
-					DataCount--;
-					delete pCurr;
-					return true;
-				}
-			}
+						pPrev->pLeft = pCurr->pRight;
+					delete pCurr;				}
+				else
+					if (pCurr->pLeft && pCurr->pRight)
+					{
+						TNode* tmp = pCurr->pLeft;
+						pPrev = pCurr;
+						while (tmp->pRight)// != NULL)
+						{
+							pPrev = tmp;
+							tmp = tmp->pRight;
+						}
+						pCurr->val = tmp->val;
+						pCurr->key = tmp->key;
+						if (pPrev->pLeft = tmp)
+							pPrev->pLeft = tmp->pLeft;
+						else
+							pPrev->pRight = tmp->pLeft;
+						delete tmp;
+					}
+		Eff++;
+		DataCount--;
+		return true;
+	}
 	return false;
 }
 
@@ -509,12 +519,15 @@ void TTreeTable::Reset()
 {
 	while (!st.empty())
 		st.pop();
-	pCurr = pRoot;
+	TNode* tmp = pCurr = pRoot;
 	n = 0;
 	if (pCurr) {
-		while (pCurr->pLeft)
-			pCurr = pCurr->pLeft;
-		n++;
+		while (tmp)
+		{
+			st.push(tmp);
+			pCurr = tmp;
+			tmp = tmp->pLeft;
+		}
 	}
 }
 void TTreeTable::GoNext()
@@ -533,7 +546,7 @@ void TTreeTable::GoNext()
 		if (!pCurr && !st.empty())
 		{
 			pCurr = st.top();
-			st.pop();
+			//st.pop();
 		}
 		n++;
 	}
@@ -552,12 +565,40 @@ void TTreeTable::Print()
 	}
 }
 
+bool TTreeTable::IsFull()const
+{
+	return size==DataCount;
+}
+
 TRecord TTreeTable::GetCurr()
 {
 	TRecord rec;
 	rec.key = pCurr->key;
 	rec.val = pCurr->val;
 	return rec;
+}
+
+void TTreeTable:: Save(const char* fn)
+{
+	std::ofstream ost(fn);
+//	for (Reset(); !IsEnd(); GoNext())
+	Reset();
+	_Save(ost,pCurr);
+	ost.close();
+}
+
+void TTreeTable::_Save(std::ostream& os, TNode* pNode)
+{
+	if (pNode)
+	{
+			for (int i = 0; i < level; i++)
+				os << " ";
+			os << pNode->key << std::endl;
+			level++;
+			_Save(os, pNode->pRight);
+			_Save(os, pNode->pLeft);
+			level--;
+	}
 }
 
 //********************************************************************************
@@ -576,7 +617,7 @@ protected:
 public:
 	THashTable(int _MaxSize, int _Step);
 	THashTable(const THashTable& th);
-
+	~THashTable() { delete[]mas; }
 	bool Find(TKey k)override;
 	bool Insert(TRecord rec)override;
 	bool Delete(TKey k)override;
@@ -592,6 +633,10 @@ THashTable::THashTable(int _MaxSize, int _Step)
 {
 	MaxSize = _MaxSize;
 	Step = _Step;
+	DelPos = -1;
+	Curr = -1;
+	Eff = 0;
+	DataCount = 0;
 	mas = new TRecord[MaxSize];
 	for (int i=0; i < MaxSize; i++)
 	{
@@ -650,6 +695,7 @@ bool THashTable::Insert(TRecord rec)
 	{
 		mas[Curr] = rec;
 		DataCount++;
+		Eff++;
 		return true;
 	}
 	else
