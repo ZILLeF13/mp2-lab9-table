@@ -581,10 +581,11 @@ TRecord TTreeTable::GetCurr()
 void TTreeTable:: Save(const char* fn)
 {
 	std::ofstream ost(fn);
-//	for (Reset(); !IsEnd(); GoNext())
-	Reset();
-	_Save(ost,pCurr);
+	_Save(ost,pRoot);
 	ost.close();
+	std::cout << std::endl;
+	std::cout << "Откройте text.txt" << std::endl;
+	std::cout << std::endl;
 }
 
 void TTreeTable::_Save(std::ostream& os, TNode* pNode)

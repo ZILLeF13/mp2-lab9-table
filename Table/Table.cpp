@@ -183,6 +183,7 @@ void main()
 				std::cout << "1. Delete" << std::endl;
 				std::cout << "2. Insert" << std::endl;
 				std::cout << "3. Find" << std::endl;
+				std::cout << "4. Print" << std::endl;
 				std::cout << "0. Exit" << std::endl;
 				int n1;
 				std::cin >> n1;
@@ -222,7 +223,6 @@ void main()
 				}
 				if (n1 == 4)
 				{
-					//for(T.Reset();!T.IsEnd();T.GoNext())
 					T.Save("text.txt");
 				}
 				if (n1 == 0)
